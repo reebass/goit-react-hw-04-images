@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { Container } from './App.styled';
 import { Button } from './Button/Button';
 import { ImageGallery } from './ImageGallery/ImageGallery';
@@ -6,87 +6,66 @@ import { Searchbar } from './Searchbar/Searchbar';
 import { fetchImagas } from './Api/Api';
 import { Loader } from './Loader/Loader';
 import toast, { Toaster } from 'react-hot-toast';
-import PropTypes from 'prop-types';
 
 
 
-export class App extends Component {
-  static propTypes = {
-    searchQuery: PropTypes.string
-  }
+export const App = () => {
 
-  state = {
-    searchQuery: null,
-    images: [],
-    page: 1,
-    loading: false,
-    total: null,
-  };
+  const [SearchQuery, setSearchQuery] = useState(null);
+  const [Images, setImages] = useState([]);
+  const [Page, setPage] = useState(1);
+  const [Loading, setLoading] = useState(false);
+  const [Total, setTotal] = useState(null);
 
-  componentDidUpdate(_, prevState) {
-    const prevQuery = prevState.searchQuery;
-    const nextQuery = this.state.searchQuery;
-
-    const prevPage = prevState.page;
-    const nextPage = this.state.page;
+  useEffect(() => {
     const perPage = 12;
-
-    if (prevQuery !== nextQuery || prevPage !== nextPage) {
-      this.setState({ loading: true });
-
-      fetchImagas(nextQuery, nextPage, perPage)
+    if(SearchQuery === null){
+      return
+    }
+    setLoading(true);
+      fetchImagas(SearchQuery, Page, perPage)
         .then(images => {
           if (images.hits.length === 0) {
-            toast.error(`"${nextQuery}" images not found`)
+            toast.error(`"${SearchQuery}" images not found`)
           }
-          return this.setState(prevState => ({
-            images: [
-              ...prevState.images,
-              ...this.selectKeysArrImages(images.hits),
-            ],
-            total: Math.floor(images.totalHits / perPage),
-          }));
-        })
+          setImages(prevState => [
+              ...prevState,
+              ...selectKeysArrImages(images.hits)
+            ])
+          setTotal(Math.floor(images.totalHits / perPage))
+          })
         .catch(error => toast.error(error.message))
-        .finally(() => this.setState({ loading: false }));
-    }
-  }
-
-  selectKeysArrImages = arrImages => {
+        .finally(() => setLoading(false));
+  }, [SearchQuery, Page])
+  
+  const selectKeysArrImages = arrImages => {
     return arrImages.map(({ tags, id, largeImageURL, webformatURL }) => {
       return { tags, id, largeImageURL, webformatURL };
     });
   };
 
-  hendleFormSubmit = searchQuery => {
-    const { searchQuery: prevSearchQuery } = this.state;
-    if (prevSearchQuery !== searchQuery) {
-      this.setState({ images: [], page: 1 });
+  const hendleFormSubmit = query => {
+    if (SearchQuery !== query) {
+      setImages([]);
+      setPage(1);
     }
 
-    this.setState({ searchQuery });
+    setSearchQuery(query);
   };
 
-  onIncrementPage = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  const onIncrementPage = () => {
+    setPage(prevState => prevState + 1);
   };
 
-
-
-  render() {
-    const { images, total, page, loading } = this.state;
-    return (
-      <Container>
-        <Searchbar onSubmit={this.hendleFormSubmit} />
-        {loading && <Loader />}
-        {images.length > 0 && <ImageGallery images={images} />}
-        {images.length > 0 && page < total && (
-          <Button onLoadmore={this.onIncrementPage} />
-        )}
-        <Toaster position="top-right" reverseOrder={false} />
-      </Container>
-    );
-  }
+  return (
+    <Container>
+      <Searchbar onSubmit={hendleFormSubmit} />
+      {Loading && <Loader />}
+      {Images.length > 0 && <ImageGallery images={Images} />}
+      {Images.length > 0 && Page < Total && (
+        <Button onLoadmore={onIncrementPage} />
+      )}
+      <Toaster position="top-right" reverseOrder={false} />
+    </Container>
+  );
 }
